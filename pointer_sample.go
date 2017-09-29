@@ -6,13 +6,13 @@ func main() {
   count := 10
   println("before :", count, &count)
 
-  increment(count)
+  increment(&count)
 
   println("after :", count, &count)
 }
 
-func increment(inc int) {
+func increment(inc *int) {
 
-  inc++
-  println("inc :", inc, &inc)
+  *inc++
+  println("inc :", *inc, &inc, inc)
 }
