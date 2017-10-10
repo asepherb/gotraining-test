@@ -14,17 +14,17 @@ type temporary interface {
 }
 
 type message struct {
-	data	string
-	conn 	net.Conn
+	data string
+	conn net.Conn
 }
 
 type client struct {
-	name	string
-	room 	*Room
-	reader	*bufio.Reader
-	writer	*bufio.Writer
-	wg		sync.WaitGroup
-	conn 	net.Conn
+	name   string
+	room   *Room
+	reader *bufio.Reader
+	writer *bufio.Writer
+	wg     sync.WaitGroup
+	conn   net.Conn
 }
 
 func (c *client) read() {
@@ -36,20 +36,20 @@ func (c *client) read() {
 		if err == nil {
 			c.room.outgoing <- message{
 				data: line,
-				conn: c.conn
+				conn: c.conn,
 			}
 			continue
 		}
 
 		if e, is := err.(temporary); is && !e.Temporary() {
 			log.Println("temporary: client is leaving chat")
-			c.wg.Done
+			c.wg.Done()
 			return
 		}
 
 		if err == io.EOF {
 			log.Println("EOF: client is leaving chat")
-			c.wg.Done
+			c.wg.Done()
 			return
 		}
 
@@ -73,26 +73,26 @@ func (c *client) drop() {
 func newClient(room *Room, conn net.Conn, name string) *client {
 
 	c := client{
-		name: name,
-		room: room,
+		name:   name,
+		room:   room,
 		reader: bufio.NewReader(conn),
 		writer: bufio.NewWriter(conn),
-		conn: conn,
+		conn:   conn,
 	}
 
 	c.wg.Add(1)
-	go c.read
+	go c.read()
 
 	return &c
 }
 
 type Room struct {
-	listener	net.Listener
-	clients		[]*client
-	joining		chan net.Conn
-	outgoing	chan message
-	shutdown	chan struct{}
-	wg			sync.WaitGroup
+	listener net.Listener
+	clients  []*client
+	joining  chan net.Conn
+	outgoing chan message
+	shutdown chan struct{}
+	wg       sync.WaitGroup
 }
 
 func (r *Room) sendGroupMessage(m message) {
@@ -124,7 +124,7 @@ func (r *Room) start() {
 				r.sendGroupMessage(message)
 			case conn := <-r.joining:
 				r.join(conn)
-			case <- r.shutdown:
+			case <-r.shutdown:
 				r.wg.Done()
 				return
 			}
@@ -133,10 +133,10 @@ func (r *Room) start() {
 
 	//chatroom connection accept
 	go func() {
-		
+
 		var err error
 
-		if r.listener, err := net.Listen("tcp", ":6000"); err != nil {
+		if r.listener, err = net.Listen("tcp", ":6000"); err != nil {
 			log.Fatalln(err)
 		}
 
@@ -144,7 +144,7 @@ func (r *Room) start() {
 		for {
 			conn, err := r.listener.Accept()
 			if err != nil {
-				
+
 				if e, is := err.(temporary); is {
 					if !e.Temporary() {
 						log.Println("temporary: chat room is shutting down")
@@ -159,7 +159,7 @@ func (r *Room) start() {
 
 			r.joining <- conn
 		}
-	}
+	}()
 }
 
 func (r *Room) Close() error {
@@ -179,12 +179,12 @@ func (r *Room) Close() error {
 func New() *Room {
 
 	chatRoom := Room{
-		joining: make(chan net.Conn),
+		joining:  make(chan net.Conn),
 		outgoing: make(chan message),
 		shutdown: make(chan struct{}),
 	}
 
 	chatRoom.start()
 
-	return &chatRoom;
-} 
+	return &chatRoom
+}
